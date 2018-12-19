@@ -1,11 +1,10 @@
 
 import socket
-import time
 import os
 import select
 import sys
 import queue
-#from multiprocessing import Queue
+# from multiprocessing import Queue
 import traceback
 # Client
 
@@ -26,9 +25,9 @@ sock.bind((client_address, 1234))
 # udp.bind(("",1234))
 
 # get ip address and send
-hostname = socket.gethostname()
-IPAddr = socket.gethostbyname(hostname)
-print(IPAddr)
+# hostname = socket.gethostname()
+# IPAddr = socket.gethostbyname(hostname)
+# print(IPAddr)
 
 sock.connect((server_address, server_port))
 # sock.send((ip_length))
@@ -37,6 +36,8 @@ sock.connect((server_address, server_port))
 # sock.close()
 # time.sleep(5)
 
+# command count to keep track of the number of times commands are re-executed
+command_count = dict()
 
 inputs = [sock]
 outputs = []
@@ -50,29 +51,47 @@ try:
         for s in readable:
             if s is sock:
                 data = s.recv(2000).decode()
-                print("Printing data", data)
-                if data:
+                print("Printing data", data.encode('utf-8'))
+                if data != '':
                     print("Received data")
                     message_queues[s] = queue.Queue()
-                    commands = data.split("\n")
+                    commands = data.strip().split("\n")
+                    commands = [i.split(",") for i in commands]
                     flag = 0
-                for command in commands:
-                    retval = os.system(command)
+                    # print(commands[1])
+                    for cmd_num, command in commands:
+                        retval = os.system(command)
                     # send ACK
-                    
-                    if(retval != 0):
-                        flag = retval
-                    # retval=str(retval)
-                   
-                        message_queues[s].put((str(flag)+","+str()).encode("utf-8"))
+                        if(retval != 0):
+                            # Send status error
+                            flag = retval
+
+                            # Check number of times command is exeucted
+                            if(s in command_count.keys()):
+                                if(command_count[s] > 3):
+                                    # Command failure
+                                    message_queues[s].put(
+                                        str(cmd_num)+","+str("FAIL")+","+str(client_address))
+                                    continue
+                                else:
+                                    command_count[s] += 1
+                            else:
+                                command_count[s] = 0
+                                # retval=str(retval)
+                            message_queues[s].put(
+                                str(cmd_num)+","+str(flag)+","+str(client_address))
+                    else:
+                        if(flag == 0):
+                            print("All commands executed successfully")
+                            message_queues[s].put(
+                                str(cmd_num)+","+str("EOF")+","+str(client_address))
                     if s not in outputs:
                         outputs.append(s)
-            else:
-                if s in outputs:
-                    outputs.remove(s)
-                # inputs.remove(s)
-                s.close()
-                del message_queues[s]
+                # if s in outputs:
+                #     outputs.remove(s)
+                # # inputs.remove(s)
+                # s.close()
+                # del message_queues[s]
 
         for s in writable:
             print("Sending ACK")
@@ -80,10 +99,10 @@ try:
                 next_msg = message_queues[s].get_nowait().encode('utf-8')
             except queue.Empty:
                 outputs.remove(s)
+                # if s in outputs:
+                #     outputs.remove(s)
+                #     del message_queues[s]
             else:
-                if s in outputs:
-                    outputs.remove(s)
-                    del message_queues[s]
                 s.send(next_msg)
 
         for s in exceptional:

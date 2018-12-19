@@ -13,8 +13,8 @@ import traceback
 #fp= open(file_no)
 fp = open("script.sh")
 text = fp.readlines()
-for ele in range(0,len(text)):
-    text[ele]=str(ele)+","+text[ele]
+for ele in range(0, len(text)):
+    text[ele] = str(ele)+","+text[ele]
 # Send heartbeats to indicate clients which require the file
 ipaddress = []
 
@@ -28,10 +28,10 @@ inputs = []
 # list of python sockets that can be written into
 outputs = []
 
-#Server keeps track of command number for each client
-command_count=dict()
-#Key-IP address
-#Value-list of failed command counts
+# Server keeps track of command number for each client
+command_failed = dict()
+# Key-IP address
+# Value-list of failed command counts
 
 serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 serversocket.setblocking(0)
@@ -42,7 +42,7 @@ serversocket.bind((server_ip, server_port))
 serversocket.listen(5)
 inputs = [serversocket]
 outputs = []
-message_queues = {} #dictionary
+message_queues = {}  # dictionary
 try:
     while inputs:
         print("Waiting for events")
@@ -56,24 +56,37 @@ try:
                 print("new connection added")
                 inputs.append(connection)
                 message_queues[connection] = queue.Queue()
-                
-                send_data = "\n".join(text) #sends (command_no,data)
+
+                send_data = "".join(text)  # sends (command_no,data)
                 message_queues[connection].put(send_data)
                 if connection not in outputs:
                     outputs.append(connection)
                 # connection.send(text)
             else:
-                command_no,status, ip_addr= s.recv(30).decode().split(",")
-                if status.decode('utf-8') != 'EOF':
-                    print("Error occured in command: ",text[int(command_no)])
+                received = s.recv(1000).decode().split(",")
+                if(received[0] == ''):
+                    break
+                command_no, status, ip_addr = received
+                if status != 'EOF':
+                    if status == 'FAIL':
+                        if(s in command_failed.keys()):
+                            command_failed[s].append(command_no)
+                        else:
+                            command_failed[s] = [command_no]
+                        continue
+                    print("Error occured in command: ", text[int(command_no)])
                     if(int(status) != 0):
                         print("Failed to execute commands on ", ip_addr)
+                        send_data = "".join(
+                            [text[i] for i in range(len(text)) if i == int(command_no)])
+                        print("Resending:", send_data)
+                        message_queues[s].put(send_data)
                     else:
                         print("Commands executed sucessfully")
-                    # message_queues[s].put(data)
                     # if s not in outputs:
                     # outputs.append(s)
                 else:
+                    print("Removing s from inputs and outputs")
                     if s in outputs:
                         outputs.remove(s)
                     inputs.remove(s)
@@ -81,14 +94,17 @@ try:
                     del message_queues[s]
 
         for s in writable:
+            print("Iterating through writable")
             if s is not serversocket:
-                print("Sending data")
-                print(message_queues[s].queue)
+                # print(message_queues[s].queue.get_nowait().encode('utf-8'))
                 try:
                     next_msg = message_queues[s].get_nowait().encode('utf-8')
                 except queue.Empty:
-                    outputs.remove(s)
+                    print("Queue is empty")
+                    # outputs.remove(s)
                 else:
+                    print("Sending data")
+                    print(next_msg)
                     s.send(next_msg)
                     #del message_queues[s]
                     # outputs.remove(s)
@@ -103,6 +119,3 @@ except Exception as e:
     print("Exception encountered")
     traceback.print_exc()
     serversocket.close()
-
-
-
