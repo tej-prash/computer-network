@@ -12,6 +12,9 @@ import traceback
 #file_no=input("Enter the file name to be sent\n")
 #fp= open(file_no)
 fp = open("script.sh")
+text = fp.readlines()
+for ele in range(0,len(text)):
+    text[ele]=str(ele)+","+text[ele]
 # Send heartbeats to indicate clients which require the file
 ipaddress = []
 
@@ -24,6 +27,11 @@ server_ip = '127.0.2.15'
 inputs = []
 # list of python sockets that can be written into
 outputs = []
+
+#Server keeps track of command number for each client
+command_count=dict()
+#Key-IP address
+#Value-list of failed command counts
 
 serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 serversocket.setblocking(0)
@@ -48,17 +56,17 @@ try:
                 print("new connection added")
                 inputs.append(connection)
                 message_queues[connection] = queue.Queue()
-                text = fp.read()
-                print(text)
-                message_queues[connection].put(text)
+                
+                send_data = "\n".join(text) #sends (command_no,data)
+                message_queues[connection].put(send_data)
                 if connection not in outputs:
                     outputs.append(connection)
                 # connection.send(text)
             else:
-                data, ip_addr = s.recv(30).decode().split(",")
-                if data.decode('utf-8') != 'EOF':
-                    print("Received data")
-                    if(int(data) != 0):
+                command_no,status, ip_addr= s.recv(30).decode().split(",")
+                if status.decode('utf-8') != 'EOF':
+                    print("Error occured in command: ",text[int(command_no)])
+                    if(int(status) != 0):
                         print("Failed to execute commands on ", ip_addr)
                     else:
                         print("Commands executed sucessfully")
