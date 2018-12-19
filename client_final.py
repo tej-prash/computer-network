@@ -56,26 +56,23 @@ try:
                     message_queues[s] = queue.Queue()
                     commands = data.split("\n")
                     flag = 0
-
                 for command in commands:
                     retval = os.system(command)
                     # send ACK
+                    
                     if(retval != 0):
                         flag = retval
                     # retval=str(retval)
-                    # s.send(retval)
-                    message_queues[s].put(
-                        (str(flag)+","+client_address).encode("utf-8"))
+                   
+                        message_queues[s].put((str(flag)+","+str()).encode("utf-8"))
                     if s not in outputs:
                         outputs.append(s)
-                else:
-                    if s in outputs:
-                        outputs.remove(s)
-                    # inputs.remove(s)
-                    s.close()
-                    del message_queues[s]
             else:
-                pass
+                if s in outputs:
+                    outputs.remove(s)
+                # inputs.remove(s)
+                s.close()
+                del message_queues[s]
 
         for s in writable:
             print("Sending ACK")
