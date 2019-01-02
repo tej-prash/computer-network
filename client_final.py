@@ -1,20 +1,32 @@
-
+# Client
 import socket
 import os
 import select
 import sys
 import queue
-# from multiprocessing import Queue
 import traceback
-# Client
+import struct, fcntl
 
-# server_address='10.10.1.2'
-server_address = '127.0.2.15'
-client_address = '127.0.2.30'
+
+server_address = '10.1.10.131'
 server_port = 9876
+
 
 # binding hostname and port number to socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sockfd = sock.fileno()
+SIOCGIFADDR = 0x8915
+def get_ip(iface = 'enp2s0'):
+	ifreq = struct.pack('16sH14s', iface.encode('utf-8'), socket.AF_INET, b'\x00'*14)
+	try:
+		res = fcntl.ioctl(sockfd, SIOCGIFADDR, ifreq)
+	except:
+		return None
+	ip = struct.unpack('16sH2x4s8x', res)[2]
+	return socket.inet_ntoa(ip)
+client_address = get_ip('enp2s0')
+
+
 # sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 # ip address of client itself
 # sock.bind(('10.10.1.1',1234))

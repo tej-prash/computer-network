@@ -6,11 +6,11 @@ import sys
 import queue
 import select
 import traceback
-#from multiprocessing import Queue
+# from multiprocessing import Queue
 # Take input from admin
 
-#file_no=input("Enter the file name to be sent\n")
-#fp= open(file_no)
+# file_no=input("Enter the file name to be sent\n")
+# fp= open(file_no)
 fp = open("script.sh")
 text = fp.readlines()
 for ele in range(0, len(text)):
@@ -22,7 +22,7 @@ ipaddress = []
 server_port = 9876
 client_port = 1234
 
-server_ip = '127.0.2.15'
+server_ip = '10.1.10.131'
 # List of python sockets that can be read
 inputs = []
 # list of python sockets that can be written into
@@ -35,7 +35,7 @@ command_failed = dict()
 
 serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 serversocket.setblocking(0)
-#s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+# s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 serversocket.bind((server_ip, server_port))
 # s.connect(('10.10.1.1',1234))
 
@@ -63,35 +63,37 @@ try:
                     outputs.append(connection)
                 # connection.send(text)
             else:
-                received = s.recv(1000).decode().split(",")
-                if(received[0] == ''):
-                    break
-                command_no, status, ip_addr = received
-                if status != 'EOF':
-                    if status == 'FAIL':
-                        if(s in command_failed.keys()):
-                            command_failed[s].append(command_no)
+                data = s.recv(10000).decode().split("\n")
+                for i in data:
+                        received = i.split(",")
+                        if(received == ''):
+                                break
+                        print("Received ", received)
+                        command_no, status, ip_addr = received
+                        if status != 'EOF':
+                                if status == 'FAIL':
+                                        if(s in command_failed.keys()):
+                                                command_failed[s].append(command_no)
+                                        else:
+                                                command_failed[s] = [command_no]
+                                        continue
+                                print("Error occured in command: ", text[int(command_no)])
+                                if(int(status) != 0):
+                                    print("Failed to execute commands on ", ip_addr)
+                                    send_data = "".join([text[i] for i in range(len(text)) if i == int(command_no)])
+                                    print("Resending:", send_data)
+                                    message_queues[s].put(send_data)
+                                else:
+                                        print("Commands executed sucessfully")
+                                # if s not in outputs:
+                                # outputs.append(s)
                         else:
-                            command_failed[s] = [command_no]
-                        continue
-                    print("Error occured in command: ", text[int(command_no)])
-                    if(int(status) != 0):
-                        print("Failed to execute commands on ", ip_addr)
-                        send_data = "".join(
-                            [text[i] for i in range(len(text)) if i == int(command_no)])
-                        print("Resending:", send_data)
-                        message_queues[s].put(send_data)
-                    else:
-                        print("Commands executed sucessfully")
-                    # if s not in outputs:
-                    # outputs.append(s)
-                else:
-                    print("Removing s from inputs and outputs")
-                    if s in outputs:
-                        outputs.remove(s)
-                    inputs.remove(s)
-                    s.close()
-                    del message_queues[s]
+                                print("Removing s from inputs and outputs")
+                                if s in outputs:
+                                        outputs.remove(s)
+                                inputs.remove(s)
+                                s.close()
+                                del message_queues[s]
 
         for s in writable:
             print("Iterating through writable")
@@ -106,7 +108,7 @@ try:
                     print("Sending data")
                     print(next_msg)
                     s.send(next_msg)
-                    #del message_queues[s]
+                    # del message_queues[s]
                     # outputs.remove(s)
         for s in exceptional:
             inputs.remove(s)
