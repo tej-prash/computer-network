@@ -33,9 +33,10 @@ command_failed = dict()
 # Key-IP address
 # Value-list of failed command counts
 
+
 serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 serversocket.setblocking(0)
-# s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 serversocket.bind((server_ip, server_port))
 # s.connect(('10.10.1.1',1234))
 
@@ -66,7 +67,7 @@ try:
                 data = s.recv(10000).decode().split("\n")
                 for i in data:
                         received = i.split(",")
-                        if(received == ''):
+                        if(received[0] == ''):
                                 break
                         print("Received ", received)
                         command_no, status, ip_addr = received
@@ -92,7 +93,8 @@ try:
                                 if s in outputs:
                                         outputs.remove(s)
                                 inputs.remove(s)
-                                s.close()
+                                writable.remove(s)
+                                #s.close()
                                 del message_queues[s]
 
         for s in writable:
