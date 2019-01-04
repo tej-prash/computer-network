@@ -1,3 +1,5 @@
+# Server code for Auto Software Installation
+
 import socket
 import time
 import os
@@ -6,56 +8,73 @@ import sys
 import queue
 import select
 import traceback
-# from multiprocessing import Queue
-# Take input from admin
+import logging
 
-# file_no=input("Enter the file name to be sent\n")
-# fp= open(file_no)
+try:
+	logging.basicConfig(filename="log/alog.log", level=logging.DEBUG,
+	                    format='%(asctime)s - %(levelname)s : %(message)s')
+except:
+    os.system("mkdir log")
+    logging.basicConfig(filename='log/alog.log',level=logging.DEBUG,
+                        format='%(asctime)s - %(levelname)s : %(message)s')
+
+# TODO: link with front end - Drag n drop.
+
 fp = open("script.sh")
 text = fp.readlines()
 for ele in range(0, len(text)):
     text[ele] = str(ele)+","+text[ele]
+
 # Send heartbeats to indicate clients which require the file
 ipaddress = []
-
-# Server
 server_port = 9876
 client_port = 1234
-
 server_ip = '10.1.10.131'
-# List of python sockets that can be read
-inputs = []
-# list of python sockets that can be written into
-outputs = []
 
-# Server keeps track of command number for each client
-command_failed = dict()
-# Key-IP address
-# Value-list of failed command counts
+# Variable to keep track of the number of times commands are re-executed.
+# Key : IP address.
+# Value : list of failed command counts.
+command_failed = dict()  # Type : Dict[str, List]
 
-
+# Creating a TCP/IP socket.
 serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 serversocket.setblocking(0)
+
+# Ensuring 'Binding Socke: "Address already is use"' error is not thrown.
 serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+# Bind the socket to the port.
 serversocket.bind((server_ip, server_port))
-# s.connect(('10.10.1.1',1234))
 
 serversocket.listen(5)
+
+# List of python sockets that can be read.
 inputs = [serversocket]
+
+# List of python sockets that can be written into.
 outputs = []
-message_queues = {}  # dictionary
+
+# Outgoing message queue.
+# Key : socket
+# Value : Queue
+message_queues = {}  # Type : Dict[object, object]
+
 try:
     while inputs:
-        print("Waiting for events")
-        readable, writable, exceptional = select.select(
-            inputs, outputs, inputs, 10.0)
+        print("Waiting for events...")
+        logging.info("Waiting for events...")
+        readable, writable, exceptional = select.select(inputs, outputs, inputs, 10.0)
         for s in readable:
+            # If s is the main server socket, the server is ready to accept incoming connections.
             if s is serversocket:
                 connection, client_address = s.accept()
                 ipaddress.append(client_address)
                 connection.setblocking(0)
-                print("new connection added")
+                print("New connection added.")
+                logging.info("New connection added.")
                 inputs.append(connection)
+
+                #Give the connection a queue for data we want to send.
                 message_queues[connection] = queue.Queue()
 
                 send_data = "".join(text)  # sends (command_no,data)
@@ -94,7 +113,7 @@ try:
                                         outputs.remove(s)
                                 inputs.remove(s)
                                 writable.remove(s)
-                                #s.close()
+                                # s.close()
                                 del message_queues[s]
 
         for s in writable:
@@ -118,6 +137,7 @@ try:
                 outputs.remove(s)
             s.close()
             del message_queues[s]
+
 except Exception as e:
     print(e)
     print("Exception encountered")
