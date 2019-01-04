@@ -1,4 +1,5 @@
-# Client
+# Client code for Auto Software Installation
+
 import socket
 import os
 import select
@@ -7,13 +8,14 @@ import queue
 import traceback
 import struct, fcntl
 
-
 server_address = '10.1.10.131'
 server_port = 9876
+client_port = 1234
 
-
-# binding hostname and port number to socket
+# Creating a TCP/IP socket.
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+# Function to get self-IP address.
 sockfd = sock.fileno()
 SIOCGIFADDR = 0x8915
 def get_ip(iface = 'enp2s0'):
@@ -26,32 +28,19 @@ def get_ip(iface = 'enp2s0'):
 	return socket.inet_ntoa(ip)
 client_address = get_ip('enp2s0')
 
-
+# Ensuring 'Binding Socke: "Address already is use"' error is not thrown.
 sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-# ip address of client itself
-# sock.bind(('10.10.1.1',1234))
-sock.bind((client_address, 1234))
 
-# udp=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-# udp.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-# udp.bind(("",1234))
+# Binding ip address of client itself
+sock.bind((client_address, client_port))
 
-# get ip address and send
-# hostname = socket.gethostname()
-# IPAddr = socket.gethostbyname(hostname)
-# print(IPAddr)
-
+# Connection establishment from client to server.
 sock.connect((server_address, server_port))
-# sock.send((ip_length))
-# IPAddr=IPAddr.encode('utf-8')
-# sock.send((IPAddr))
-# sock.close()
-# time.sleep(5)
 
-# command count to keep track of the number of times commands are re-executed
-command_count = dict()
+# Variable to keep track of the number of times commands are re-executed.
+command_count = dict()  # Type: Dict[command_no, re-executed_count]
 
-inputs = [sock]
+inputs = [sock]  #Type: List[sockets]
 outputs = []
 message_queues = {}
 try:
